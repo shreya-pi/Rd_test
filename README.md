@@ -1,206 +1,181 @@
-# SQL Server to Snowflake Procedure Migration Tool
+Of course. Based on our extensive collaboration and the file structure provided, I have a deep understanding of how this project is architected. Here is a detailed and professional `README.md` file that explains the purpose of each component and how they all fit together.
 
-A Streamlit-based web application designed to facilitate the migration of T-SQL stored procedures from Microsoft SQL Server to Snowflake. The tool provides a user-friendly interface to manage the end-to-end migration workflow: metadata ingestion, automated code conversion, and deployment.
+---
 
-## Table of Contents
-- [Core Features](#core-features)
-- [Project Architecture](#project-architecture)
-- [File Structure and Purpose](#file-structure-and-purpose)
-- [Setup and Installation](#setup-and-installation)
-- [Usage Guide](#usage-guide)
-  - [1. Initial Configuration](#1-initial-configuration)
-  - [2. Ingesting Metadata](#2-ingesting-metadata)
-  - [3. Converting Procedures](#3-converting-procedures)
-  - [4. Deploying to Snowflake](#4-deploying-to-snowflake)
-- [Configuration File (`config.json`)](#configuration-file-configjson)
+# SQL Server to Snowflake Stored Procedure Migration Assistant
 
-## Core Features
+An interactive, web-based tool built with Streamlit to guide developers through the complex process of migrating stored procedures from SQL Server to Snowflake. This application provides a step-by-step, stateful workflow, from initial metadata extraction to final unit testing and Git deployment.
 
-*   **Multi-Source Metadata Ingestion:** Extract procedure definitions directly from a SQL Server database or by uploading individual `.sql` script files.
-*   **Staging Area:** Review and manage procedures from different sources before loading them into the central metadata repository.
-*   **Centralized Metadata Repository:** A dedicated Snowflake table (`procedures_metadata`) acts as the single source of truth for the migration project, tracking the status of each procedure.
-*   **Automated Code Conversion:** (Planned) A module to automatically translate T-SQL syntax to Snowflake's SQL dialect.
-*   **Selective Deployment:** Deploy converted procedures to Snowflake individually or in bulk directly from the UI.
-*   **State Tracking:** Keep track of which procedures are marked for conversion (`CONVERSION_FLAG`) and which have been successfully deployed (`IS_DEPLOYED`).
+## ✨ Key Features
 
-## Project Architecture
+- **Interactive UI:** A user-friendly web interface that abstracts away complex command-line operations.
+- **Guided Workflow:** A stateful, multi-step process that guides the user from start to finish, with visual indicators for completed steps.
+- **Database Integration:** Connects directly to source (SQL Server) and target (Snowflake) databases to manage metadata and run tests.
+- **Live Code Comparison & Editing:** A side-by-side viewer to compare original vs. converted code, with an integrated editor to make and save changes directly.
+- **Automated Testing:** A framework to run unit tests against converted procedures in Snowflake and review the results in a filterable dashboard.
+- **Git Integration:** A one-click option to publish validated and deployed procedures to a specified Git repository.
+- **Persistent Logging:** All actions are logged to a file, which can be viewed and downloaded from the UI for auditing and debugging.
+- **Secure Authentication:** User login and registration backed by a database for secure access.
 
-The application follows a three-stage ETL-like (Extract, Transform, Load) workflow, managed entirely through the Streamlit interface.
+## 🚀 The Migration Workflow
 
-```mermaid
-graph TD
-    subgraph "Stage 1: Ingest Metadata"
-        A[SQL Server Database] --> C{Staging Area};
-        B[SQL Script Files] --> C;
-        C --> D[Load into Snowflake];
-    end
+The application is broken down into a series of sequential components, each representing a key phase of the migration process:
 
-    subgraph "Stage 2: Convert"
-        E[Metadata Table in Snowflake] --> F{User selects procedures for conversion};
-        F --> G[Conversion Engine<br>(T-SQL to Snowflake SQL)];
-        G --> H{Update Metadata Table<br>with converted DDL};
-    end
-    
-    subgraph "Stage 3: Deploy"
-        I[Metadata Table in Snowflake] --> J{User selects converted procedures};
-        J --> K[Deploy Engine];
-        K --> L[Snowflake Environment];
-        K --> M{Update Metadata Table<br>with deployment status};
-    end
+1.  **Load Procedures from Source:** The user begins by uploading a `config.py` file containing database credentials. The application then connects to the source SQL Server, extracts metadata for all stored procedures, and loads this information into a central tracking table (`procedures_metadata`) in Snowflake.
 
-    D --> E;
-    H --> I;
-```
+2.  **Choose Procedures to Migrate:** This interactive component displays all procedures grouped by schema. The user can search and select which procedures to migrate by setting a `CONVERSION_FLAG`. After flagging, the user can extract the source code of the selected procedures into a local directory (`./extracted_procedures`).
 
-1.  **Ingest Metadata (`create_metadata_table.py`):** The user extracts procedure metadata from source systems. This data is collected in a temporary staging area within the app and then loaded into the `procedures_metadata` table in Snowflake. This table serves as the foundation for the entire process.
+3.  **Convert Procedures:** This step uses Mobilize.Net's **SnowConvert** command-line tool. It takes the extracted SQL files and automatically converts them to Snowflake's SQL dialect, placing the results in the `./converted_procedures` directory. The UI provides a dashboard to view conversion analytics from `assessment.txt`.
 
-2.  **Convert (`convert_procedures.py`):** The user selects procedures from the metadata table to be converted. The application reads the source T-SQL, passes it to a conversion engine (e.g., using an LLM API or custom translation rules), and stores the resulting Snowflake-compatible DDL back into the metadata table.
+4.  **Process Scripts:** After automated conversion, this step allows for final adjustments. The user can perform find-and-replace operations (e.g., changing schema names) and visually compare the original SQL Server script against the converted Snowflake script in a side-by-side viewer. An integrated editor allows for manual corrections to be saved directly.
 
-3.  **Deploy (`deploy_procedures.py`):** The user selects successfully converted procedures and triggers deployment. The application executes the generated Snowflake DDL in the target environment and updates the procedure's status to `IS_DEPLOYED = TRUE`.
+5.  **Run Unit Tests:** The final and most critical step. This component runs a suite of unit tests (`py_test.py`) against the processed procedures in Snowflake. It verifies both successful deployment (creation) and execution. Results are logged to a `TEST_RESULTS_LOG` table and displayed in a filterable dashboard. Successfully tested procedures can then be published to a dedicated Git repository.
 
-## File Structure and Purpose
+## 📁 File Structure Explained
+
+This project follows a modular structure, separating the main UI, component UIs, and backend logic.
 
 ```
-.
-├── .streamlit/
-│   └── config.toml        # Streamlit configuration for theme, etc.
-├── scripts/
-│   └── log.py             # Utility for logging messages to the UI.
-├── app.py                 # Main application entry point. Handles UI navigation.
-├── create_metadata_table.py # Module for Stage 1: Metadata Ingestion.
-├── convert_procedures.py    # (Planned) Module for Stage 2: Code Conversion.
-├── deploy_procedures.py     # (Planned) Module for Stage 3: Deployment.
-├── config.py              # DYNAMIC: Generated by app.py to store credentials. DO NOT COMMIT.
-└── requirements.txt       # Python package dependencies.
+./
+├── app.py                      # Main Streamlit application file. Handles routing, session state, and authentication.
+├── config.py                   # (User-provided) Contains database credentials. NOT committed to Git.
+├── Dockerfile                  # Instructions for building a Docker container for deployment.
+├── requirements.txt            # A list of all Python dependencies for the project.
+├── .env                        # Stores environment variables (DB URLs, Azure keys, etc.). NOT committed to Git.
+├── .gitignore                  # Specifies files and directories to be ignored by Git.
+├── README.md                   # This file.
+│
+├── assets/                     # Static files used by the UI.
+│   ├── config_template.py      # A template for users to create their config.py file.
+│   └── Tulapi_logo.png         # Application logo.
+│
+├── logs/                       # Directory for log files and tool outputs.
+│   ├── Sp_convertion.log       # The main application log file.
+│   └── assessment.txt          # The output report from the SnowConvert tool.
+│
+├── py_tests/                   # Output directory for test reports.
+│   └── py_results.html         # HTML report generated from unit test runs.
+│
+└── scripts/                    # The core logic of the application, organized into modules.
+    ├── __init__.py             # Makes 'scripts' a Python package.
+    │
+    ├── # --- UI Component Modules ---
+    ├── update_flag_st.py       # (Step 2) The UI for selecting, flagging, and extracting procedures.
+    ├── convert_scripts_st.py   # (Step 3) The UI for running SnowConvert and viewing analytics.
+    ├── process_procs_st.py     # (Step 4) The UI for processing, comparing, editing, and saving scripts.
+    ├── run_py_tests.py         # (Step 5) The UI for running unit tests, viewing results, and publishing to Git.
+    │
+    ├── # --- Backend Logic & Utilities ---
+    ├── create_metadata_table.py# (Step 1 Backend) Connects to SQL Server and loads metadata to Snowflake.
+    ├── extract_procedures.py   # (Step 2 Backend) Extracts flagged procedure source code to files.
+    ├── convert_scripts.py      # (Step 3 Backend) A wrapper to run the SnowConvert command-line tool.
+    ├── process_sc_script.py    # (Step 4 Backend) Performs find-and-replace on converted files.
+    ├── py_test.py              # (Step 5 Backend) The core `unittest.TestCase` class for testing procedures.
+    ├── py_output.py            # A utility to fetch test results from the Snowflake log table.
+    ├── git_publisher.py        # A utility to handle Git operations (add, commit, push).
+    └── log.py                  # Utility for configuring the application's logger.
 ```
 
-### Main Application
-*   `app.py`
-    *   **Purpose:** The main entry point for the Streamlit application (`streamlit run app.py`).
-    *   **Responsibilities:**
-        *   Handles the initial configuration setup by prompting the user to upload a `config.json` file.
-        *   Creates the `config.py` file dynamically for other modules to import.
-        *   Renders the main sidebar navigation to switch between the three stages of the migration (Ingest, Convert, Deploy).
-        *   Instantiates and calls the appropriate class/functions from the other modules based on user navigation.
 
-*   `requirements.txt`
-    *   **Purpose:** Lists all Python dependencies required to run the project.
-    *   **Usage:** Used to create a consistent environment via `pip install -r requirements.txt`.
 
-### Core Logic Modules
-*   `create_metadata_table.py`
-    *   **Purpose:** Manages **Stage 1: Metadata Ingestion**.
-    *   **Responsibilities:**
-        *   Connects to SQL Server using `pyodbc` to fetch procedure names, definitions, and parameters.
-        *   Provides a file uploader to parse procedure definitions and parameters from `.sql` files.
-        *   Implements the "Staging Area" logic, allowing users to collect procedures from multiple sources before committing.
-        *   Connects to Snowflake and uses a `MERGE` statement to intelligently insert new procedures or update existing ones in the `procedures_metadata` table.
-        *   Displays the contents of the `procedures_metadata` table in a Streamlit dataframe.
 
-*   `convert_procedures.py` (Planned)
-    *   **Purpose:** Will manage **Stage 2: Code Conversion**.
-    *   **Responsibilities:**
-        *   Fetch all procedures from the metadata table where `CONVERSION_FLAG = TRUE`.
-        *   For each procedure, send its T-SQL definition to a conversion service (e.g., an LLM API).
-        *   Parse the response to get the converted Snowflake SQL DDL.
-        *   Update the corresponding row in the `procedures_metadata` table, filling in the `SNOWFLAKE_DDL` and `ERRORS` columns.
+## 📁 File Structure Explained
 
-*   `deploy_procedures.py` (Planned)
-    *   **Purpose:** Will manage **Stage 3: Deployment**.
-    *   **Responsibilities:**
-        *   Fetch all procedures that have a non-empty `SNOWFLAKE_DDL` and are not yet deployed (`IS_DEPLOYED = FALSE`).
-        *   Allow the user to select which of these procedures to deploy.
-        *   For each selected procedure, execute its `SNOWFLAKE_DDL` in the target Snowflake environment.
-        *   On successful execution, update the `IS_DEPLOYED` flag to `TRUE`.
+The project is architected with a clear separation between the main application shell, the modular UI components, and the backend logic scripts.
 
-### Utilities & Configuration
-*   `scripts/log.py`
-    *   **Purpose:** A simple logging helper.
-    *   **Responsibilities:** Provides a `log_info` function that prints timestamped messages to the console and the Streamlit UI's info box, giving the user real-time feedback.
+### Root Directory
+-   **`app.py`**: The main entry point for the Streamlit application. Its primary responsibilities include:
+    -   Handling user authentication (Login/Register).
+    -   Managing global session state (e.g., active component, step completion).
+    -   Rendering the main layout, sidebar, and status panels.
+    -   Routing which UI component module to display in the main content area.
+-   **`config.py`**: A user-provided file containing sensitive database credentials (`SNOWFLAKE_CONFIG`, `SQL_SERVER_CONFIG`) and directory paths. This file is loaded in the first step and is intentionally excluded from version control.
+-   **`Dockerfile`**: Instructions for building a Docker container, enabling consistent and isolated deployment of the application.
+-   **`requirements.txt`**: A list of all Python dependencies required by the project. This is used by `pip` for installation.
+-   **`.env`**: Stores non-sensitive environment variables and configuration details like database URLs for authentication or Azure service endpoints. Excluded from version control.
+-   **`.gitignore`**: A standard Git file specifying which files and directories (like `.env`, `__pycache__/`, `venv/`) should not be tracked by version control.
+-   **`README.md`**: This documentation file.
 
-*   `.streamlit/config.toml`
-    *   **Purpose:** Standard Streamlit configuration file.
-    *   **Responsibilities:** Can be used to set the app's theme (e.g., light/dark mode), custom fonts, and other UI behaviors.
+### Asset and Log Directories
+-   **`assets/`**: Contains static files used by the UI.
+    -   `config_template.py`: An example template to guide users in creating their own `config.py` file.
+    -   `Tulapi_logo.png`: The application logo displayed in the UI.
+-   **`logs/`**: The central directory for all persistent logs and reports generated during the application's runtime.
+    -   `Sp_convertion.log`: The main application log file where backend scripts write detailed status updates and errors. Viewable from the UI sidebar.
+    -   `assessment.txt`: The summary report automatically generated by the SnowConvert tool during the conversion step.
+-   **`py_tests/`**: Contains outputs from the unit testing framework.
+    -   `py_results.html`: A detailed HTML report of test runs, generated for offline analysis.
 
-*   `config.py` (Dynamically Generated)
-    *   **Purpose:** To make connection credentials available to all modules in a standard Pythonic way. **This file should be added to `.gitignore` and never committed to source control.**
-    *   **Responsibilities:** It is created by `app.py` after the user uploads `config.json`. It contains the `SNOWFLAKE_CONFIG` and `SQL_SERVER_CONFIG` dictionaries.
+---
 
-## Setup and Installation
+### The `scripts/` Directory: The Core Engine
 
-1.  **Clone the repository:**
+This directory contains the heart of the application's functionality, with a clear separation between UI-facing modules and backend logic.
+
+#### UI Component Modules (`*_st.py` / `*_tests.py`)
+These modules are responsible for rendering the Streamlit UI for a specific step in the workflow. They are called by `app.py`.
+-   **`update_flag_st.py`**: Renders the interactive UI for **Step 2**. It displays procedures in color-coded, searchable, scrollable expanders and handles the logic for setting conversion flags and extracting source code.
+-   **`convert_scripts_st.py`**: Renders the UI for **Step 3**. It provides the button to run the SnowConvert process, shows real-time logs, and displays the conversion analytics dashboard. It also manages the Azure cache and Git publishing actions.
+-   **`process_procs_st.py`**: Renders the UI for **Step 4**. This is the most complex UI component, featuring the side-by-side file comparator, the toggle-able code editor, and the button to trigger a unit test for a single procedure.
+-   **`run_py_tests.py`**: Renders the UI for **Step 5**. It contains the buttons to execute the bulk test suite and to refresh the results. It also renders the filterable dashboard with metrics and a styled DataFrame of the test outcomes.
+
+#### Backend Logic & Utility Modules
+These modules contain the "headless" Python code that performs the actual work. They are called by the UI modules or by `app.py`.
+-   **`create_metadata_table.py`**: (**Step 1 Backend**) Contains the `CreateMetadataTable` class. Its methods connect to SQL Server, query the `INFORMATION_SCHEMA`, and use a `MERGE` statement to idempotently insert or update procedure metadata in the Snowflake tracking table.
+-   **`extract_procedures.py`**: (**Step 2 Backend**) Connects to Snowflake, queries the metadata table for procedures where `CONVERSION_FLAG` is true, and writes their source definitions to `.sql` files in the `./extracted_procedures` directory.
+-   **`convert_scripts.py`**: (**Step 3 Backend**) A robust Python wrapper around the `snowct` command-line tool. It handles checking for its existence, setting up the license, and executing the conversion command with the correct input and output paths.
+-   **`process_sc_script.py`**: (**Step 4 Backend**) The `ScScriptProcessor` class performs automated cleanup on the converted files. It contains regex-based logic to remove comments, replace schema names, and apply other necessary transformations.
+-   **`py_test.py`**: (**Step 5 Backend**) The core testing engine. It defines a `unittest.TestCase` class (`TestStoredProcedure`) with methods to test procedure creation (`test_create_procedure_from_file`) and execution (`test_procedure_execution`). It also includes the `run_single_test` function, a crucial component that allows for the isolated testing of a single file from the UI.
+-   **`py_output.py`**: A simple utility class that connects to Snowflake and executes a `SELECT *` query on the `TEST_RESULTS_LOG` table, returning the data for display in the UI dashboard.
+-   **`git_publisher.py`**: A utility class that encapsulates all Git logic. It handles staging files, committing with a dynamic message, and pushing to the remote repository. It is designed to operate directly on the project's root Git repository.
+-   **`log.py`**: A standard Python logging setup utility. It configures a logger to write to both the console and the persistent `logs/Sp_convertion.log` file, ensuring all backend actions are recorded.
+
+
+
+
+
+## 🛠️ Setup and Installation
+
+1.  **Clone the Repository:**
     ```bash
-    git clone <repository-url>
-    cd <repository-directory>
+    git clone <your-repository-url>
+    cd <your-repository-directory>
     ```
 
-2.  **Create a virtual environment (recommended):**
+2.  **Create a Virtual Environment (Recommended):**
     ```bash
     python -m venv venv
-    source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
+    source venv/bin/activate  # On Windows: venv\Scripts\activate
     ```
 
-3.  **Install dependencies:**
+3.  **Install Dependencies:**
     ```bash
     pip install -r requirements.txt
     ```
 
-4.  **Prepare your configuration file:**
-    *   Create a file named `config.json` based on the structure described in the [Configuration File](#configuration-file-configjson) section below. Fill in your actual credentials for Snowflake and SQL Server.
+4.  **Configure Environment Variables:**
+    Create a file named `.env` in the root directory and add the necessary variables. This file is listed in `.gitignore` and will not be committed.
+    ```env
+    # For connecting to the authentication database
+    DATABASE_URL="postgresql://user:password@host:port/database"
 
-5.  **Run the application:**
-    ```bash
-    streamlit run app.py
+    # For Azure Blob Storage caching (if used)
+    AZURE_STORAGE_CONNECTION_STRING="your_azure_connection_string"
+    ACCOUNT_URL="your_azure_account_url"
+
+    # For SnowConvert license (if needed)
+    SNOWCONVERT_LICENSE="your_snowconvert_license_key"
     ```
 
-## Usage Guide
+5.  **Prepare your `config.py`:**
+    Use the template in `assets/config_template.py` to create your own `config.py` file at the root of the project. You will upload this file via the UI in the first step.
 
-### 1. Initial Configuration
+## ▶️ Running the Application
 
-*   On the first run, the application will prompt you to upload your `config.json` file.
-*   Drag and drop your prepared `config.json` file into the uploader. The app will validate it and store the credentials in the session state for the duration of your session.
+Once the setup is complete, run the Streamlit application from the root directory:
 
-### 2. Ingesting Metadata
-
-*   Navigate to the **"1. Ingest Metadata"** page from the sidebar.
-*   **From SQL Server:** Click "Fetch Procedures from SQL Server". The app will connect to your database, read all procedure metadata, and add it to the staging area.
-*   **From Files:** Provide a logical source database/schema name, upload one or more `.sql` files, and click "Add Uploaded Files to Stage".
-*   Once procedures are in the staging area, review them in the expander and click **"Prepare Procedures for Conversion"** to load them into the Snowflake `procedures_metadata` table.
-
-### 3. Converting Procedures
-
-*   Navigate to the **"2. Convert Procedures"** page.
-*   The application will display a table of procedures from the metadata table.
-*   The user will be able to set the `CONVERSION_FLAG` to `TRUE` for desired procedures.
-*   A "Run Conversion" button will trigger the conversion process for all flagged procedures.
-
-### 4. Deploying to Snowflake
-
-*   Navigate to the **"3. Deploy Procedures"** page.
-*   The app will show a list of procedures that have been successfully converted but not yet deployed.
-*   The user can select procedures and click a "Deploy to Snowflake" button to execute their DDL in the target environment.
-
-## Configuration File (`config.json`)
-
-You must create this JSON file with the connection details for your source and target databases.
-
-```json
-{
-  "SNOWFLAKE_CONFIG": {
-    "user": "your_snowflake_user",
-    "password": "your_snowflake_password",
-    "account": "your_snowflake_account_identifier",
-    "warehouse": "your_snowflake_warehouse",
-    "database": "your_target_snowflake_db",
-    "schema": "your_target_snowflake_schema",
-    "role": "your_snowflake_role"
-  },
-  "SQL_SERVER_CONFIG": {
-    "driver": "{ODBC Driver 17 for SQL Server}",
-    "server": "your_sql_server_host,port",
-    "database": "your_source_sql_server_db",
-    "username": "your_sql_server_user",
-    "password": "your_sql_server_password"
-  }
-}
+```bash
+streamlit run app.py
 ```
+
+Navigate to the URL provided by Streamlit (usually `http://localhost:8501`) in your web browser to start using the tool.
