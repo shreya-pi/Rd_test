@@ -1,26 +1,33 @@
-SQL Server to Snowflake Procedure Migration Tool
+# SQL Server to Snowflake Procedure Migration Tool
+
 A Streamlit-based web application designed to facilitate the migration of T-SQL stored procedures from Microsoft SQL Server to Snowflake. The tool provides a user-friendly interface to manage the end-to-end migration workflow: metadata ingestion, automated code conversion, and deployment.
-Table of Contents
-Core Features
-Project Architecture
-File Structure and Purpose
-Setup and Installation
-Usage Guide
-1. Initial Configuration
-2. Ingesting Metadata
-3. Converting Procedures
-4. Deploying to Snowflake
-Configuration File (config.json)
-Core Features
-Multi-Source Metadata Ingestion: Extract procedure definitions directly from a SQL Server database or by uploading individual .sql script files.
-Staging Area: Review and manage procedures from different sources before loading them into the central metadata repository.
-Centralized Metadata Repository: A dedicated Snowflake table (procedures_metadata) acts as the single source of truth for the migration project, tracking the status of each procedure.
-Automated Code Conversion: (Planned) A module to automatically translate T-SQL syntax to Snowflake's SQL dialect.
-Selective Deployment: Deploy converted procedures to Snowflake individually or in bulk directly from the UI.
-State Tracking: Keep track of which procedures are marked for conversion (CONVERSION_FLAG) and which have been successfully deployed (IS_DEPLOYED).
-Project Architecture
+
+## Table of Contents
+- [Core Features](#core-features)
+- [Project Architecture](#project-architecture)
+- [File Structure and Purpose](#file-structure-and-purpose)
+- [Setup and Installation](#setup-and-installation)
+- [Usage Guide](#usage-guide)
+  - [1. Initial Configuration](#1-initial-configuration)
+  - [2. Ingesting Metadata](#2-ingesting-metadata)
+  - [3. Converting Procedures](#3-converting-procedures)
+  - [4. Deploying to Snowflake](#4-deploying-to-snowflake)
+- [Configuration File (`config.json`)](#configuration-file-configjson)
+
+## Core Features
+
+*   **Multi-Source Metadata Ingestion:** Extract procedure definitions directly from a SQL Server database or by uploading individual `.sql` script files.
+*   **Staging Area:** Review and manage procedures from different sources before loading them into the central metadata repository.
+*   **Centralized Metadata Repository:** A dedicated Snowflake table (`procedures_metadata`) acts as the single source of truth for the migration project, tracking the status of each procedure.
+*   **Automated Code Conversion:** (Planned) A module to automatically translate T-SQL syntax to Snowflake's SQL dialect.
+*   **Selective Deployment:** Deploy converted procedures to Snowflake individually or in bulk directly from the UI.
+*   **State Tracking:** Keep track of which procedures are marked for conversion (`CONVERSION_FLAG`) and which have been successfully deployed (`IS_DEPLOYED`).
+
+## Project Architecture
+
 The application follows a three-stage ETL-like (Extract, Transform, Load) workflow, managed entirely through the Streamlit interface.
-Generated mermaid
+
+```mermaid
 graph TD
     subgraph "Stage 1: Ingest Metadata"
         A[SQL Server Database] --> C{Staging Area};
@@ -43,13 +50,17 @@ graph TD
 
     D --> E;
     H --> I;
-Use code with caution.
-Mermaid
-Ingest Metadata (create_metadata_table.py): The user extracts procedure metadata from source systems. This data is collected in a temporary staging area within the app and then loaded into the procedures_metadata table in Snowflake. This table serves as the foundation for the entire process.
-Convert (convert_procedures.py): The user selects procedures from the metadata table to be converted. The application reads the source T-SQL, passes it to a conversion engine (e.g., using an LLM API or custom translation rules), and stores the resulting Snowflake-compatible DDL back into the metadata table.
-Deploy (deploy_procedures.py): The user selects successfully converted procedures and triggers deployment. The application executes the generated Snowflake DDL in the target environment and updates the procedure's status to IS_DEPLOYED = TRUE.
-File Structure and Purpose
-Generated code
+```
+
+1.  **Ingest Metadata (`create_metadata_table.py`):** The user extracts procedure metadata from source systems. This data is collected in a temporary staging area within the app and then loaded into the `procedures_metadata` table in Snowflake. This table serves as the foundation for the entire process.
+
+2.  **Convert (`convert_procedures.py`):** The user selects procedures from the metadata table to be converted. The application reads the source T-SQL, passes it to a conversion engine (e.g., using an LLM API or custom translation rules), and stores the resulting Snowflake-compatible DDL back into the metadata table.
+
+3.  **Deploy (`deploy_procedures.py`):** The user selects successfully converted procedures and triggers deployment. The application executes the generated Snowflake DDL in the target environment and updates the procedure's status to `IS_DEPLOYED = TRUE`.
+
+## File Structure and Purpose
+
+```
 .
 ├── .streamlit/
 │   └── config.toml        # Streamlit configuration for theme, etc.
@@ -61,97 +72,119 @@ Generated code
 ├── deploy_procedures.py     # (Planned) Module for Stage 3: Deployment.
 ├── config.py              # DYNAMIC: Generated by app.py to store credentials. DO NOT COMMIT.
 └── requirements.txt       # Python package dependencies.
-Use code with caution.
-Main Application
-app.py
-Purpose: The main entry point for the Streamlit application (streamlit run app.py).
-Responsibilities:
-Handles the initial configuration setup by prompting the user to upload a config.json file.
-Creates the config.py file dynamically for other modules to import.
-Renders the main sidebar navigation to switch between the three stages of the migration (Ingest, Convert, Deploy).
-Instantiates and calls the appropriate class/functions from the other modules based on user navigation.
-requirements.txt
-Purpose: Lists all Python dependencies required to run the project.
-Usage: Used to create a consistent environment via pip install -r requirements.txt.
-Core Logic Modules
-create_metadata_table.py
-Purpose: Manages Stage 1: Metadata Ingestion.
-Responsibilities:
-Connects to SQL Server using pyodbc to fetch procedure names, definitions, and parameters.
-Provides a file uploader to parse procedure definitions and parameters from .sql files.
-Implements the "Staging Area" logic, allowing users to collect procedures from multiple sources before committing.
-Connects to Snowflake and uses a MERGE statement to intelligently insert new procedures or update existing ones in the procedures_metadata table.
-Displays the contents of the procedures_metadata table in a Streamlit dataframe.
-convert_procedures.py (Planned)
-Purpose: Will manage Stage 2: Code Conversion.
-Responsibilities:
-Fetch all procedures from the metadata table where CONVERSION_FLAG = TRUE.
-For each procedure, send its T-SQL definition to a conversion service (e.g., an LLM API).
-Parse the response to get the converted Snowflake SQL DDL.
-Update the corresponding row in the procedures_metadata table, filling in the SNOWFLAKE_DDL and ERRORS columns.
-deploy_procedures.py (Planned)
-Purpose: Will manage Stage 3: Deployment.
-Responsibilities:
-Fetch all procedures that have a non-empty SNOWFLAKE_DDL and are not yet deployed (IS_DEPLOYED = FALSE).
-Allow the user to select which of these procedures to deploy.
-For each selected procedure, execute its SNOWFLAKE_DDL in the target Snowflake environment.
-On successful execution, update the IS_DEPLOYED flag to TRUE.
-Utilities & Configuration
-scripts/log.py
-Purpose: A simple logging helper.
-Responsibilities: Provides a log_info function that prints timestamped messages to the console and the Streamlit UI's info box, giving the user real-time feedback.
-.streamlit/config.toml
-Purpose: Standard Streamlit configuration file.
-Responsibilities: Can be used to set the app's theme (e.g., light/dark mode), custom fonts, and other UI behaviors.
-config.py (Dynamically Generated)
-Purpose: To make connection credentials available to all modules in a standard Pythonic way. This file should be added to .gitignore and never committed to source control.
-Responsibilities: It is created by app.py after the user uploads config.json. It contains the SNOWFLAKE_CONFIG and SQL_SERVER_CONFIG dictionaries.
-Setup and Installation
-Clone the repository:
-Generated bash
-git clone <repository-url>
-cd <repository-directory>
-Use code with caution.
-Bash
-Create a virtual environment (recommended):
-Generated bash
-python -m venv venv
-source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
-Use code with caution.
-Bash
-Install dependencies:
-Generated bash
-pip install -r requirements.txt
-Use code with caution.
-Bash
-Prepare your configuration file:
-Create a file named config.json based on the structure described in the Configuration File section below. Fill in your actual credentials for Snowflake and SQL Server.
-Run the application:
-Generated bash
-streamlit run app.py
-Use code with caution.
-Bash
-Usage Guide
-1. Initial Configuration
-On the first run, the application will prompt you to upload your config.json file.
-Drag and drop your prepared config.json file into the uploader. The app will validate it and store the credentials in the session state for the duration of your session.
-2. Ingesting Metadata
-Navigate to the "1. Ingest Metadata" page from the sidebar.
-From SQL Server: Click "Fetch Procedures from SQL Server". The app will connect to your database, read all procedure metadata, and add it to the staging area.
-From Files: Provide a logical source database/schema name, upload one or more .sql files, and click "Add Uploaded Files to Stage".
-Once procedures are in the staging area, review them in the expander and click "Prepare Procedures for Conversion" to load them into the Snowflake procedures_metadata table.
-3. Converting Procedures
-Navigate to the "2. Convert Procedures" page.
-The application will display a table of procedures from the metadata table.
-The user will be able to set the CONVERSION_FLAG to TRUE for desired procedures.
-A "Run Conversion" button will trigger the conversion process for all flagged procedures.
-4. Deploying to Snowflake
-Navigate to the "3. Deploy Procedures" page.
-The app will show a list of procedures that have been successfully converted but not yet deployed.
-The user can select procedures and click a "Deploy to Snowflake" button to execute their DDL in the target environment.
-Configuration File (config.json)
+```
+
+### Main Application
+*   `app.py`
+    *   **Purpose:** The main entry point for the Streamlit application (`streamlit run app.py`).
+    *   **Responsibilities:**
+        *   Handles the initial configuration setup by prompting the user to upload a `config.json` file.
+        *   Creates the `config.py` file dynamically for other modules to import.
+        *   Renders the main sidebar navigation to switch between the three stages of the migration (Ingest, Convert, Deploy).
+        *   Instantiates and calls the appropriate class/functions from the other modules based on user navigation.
+
+*   `requirements.txt`
+    *   **Purpose:** Lists all Python dependencies required to run the project.
+    *   **Usage:** Used to create a consistent environment via `pip install -r requirements.txt`.
+
+### Core Logic Modules
+*   `create_metadata_table.py`
+    *   **Purpose:** Manages **Stage 1: Metadata Ingestion**.
+    *   **Responsibilities:**
+        *   Connects to SQL Server using `pyodbc` to fetch procedure names, definitions, and parameters.
+        *   Provides a file uploader to parse procedure definitions and parameters from `.sql` files.
+        *   Implements the "Staging Area" logic, allowing users to collect procedures from multiple sources before committing.
+        *   Connects to Snowflake and uses a `MERGE` statement to intelligently insert new procedures or update existing ones in the `procedures_metadata` table.
+        *   Displays the contents of the `procedures_metadata` table in a Streamlit dataframe.
+
+*   `convert_procedures.py` (Planned)
+    *   **Purpose:** Will manage **Stage 2: Code Conversion**.
+    *   **Responsibilities:**
+        *   Fetch all procedures from the metadata table where `CONVERSION_FLAG = TRUE`.
+        *   For each procedure, send its T-SQL definition to a conversion service (e.g., an LLM API).
+        *   Parse the response to get the converted Snowflake SQL DDL.
+        *   Update the corresponding row in the `procedures_metadata` table, filling in the `SNOWFLAKE_DDL` and `ERRORS` columns.
+
+*   `deploy_procedures.py` (Planned)
+    *   **Purpose:** Will manage **Stage 3: Deployment**.
+    *   **Responsibilities:**
+        *   Fetch all procedures that have a non-empty `SNOWFLAKE_DDL` and are not yet deployed (`IS_DEPLOYED = FALSE`).
+        *   Allow the user to select which of these procedures to deploy.
+        *   For each selected procedure, execute its `SNOWFLAKE_DDL` in the target Snowflake environment.
+        *   On successful execution, update the `IS_DEPLOYED` flag to `TRUE`.
+
+### Utilities & Configuration
+*   `scripts/log.py`
+    *   **Purpose:** A simple logging helper.
+    *   **Responsibilities:** Provides a `log_info` function that prints timestamped messages to the console and the Streamlit UI's info box, giving the user real-time feedback.
+
+*   `.streamlit/config.toml`
+    *   **Purpose:** Standard Streamlit configuration file.
+    *   **Responsibilities:** Can be used to set the app's theme (e.g., light/dark mode), custom fonts, and other UI behaviors.
+
+*   `config.py` (Dynamically Generated)
+    *   **Purpose:** To make connection credentials available to all modules in a standard Pythonic way. **This file should be added to `.gitignore` and never committed to source control.**
+    *   **Responsibilities:** It is created by `app.py` after the user uploads `config.json`. It contains the `SNOWFLAKE_CONFIG` and `SQL_SERVER_CONFIG` dictionaries.
+
+## Setup and Installation
+
+1.  **Clone the repository:**
+    ```bash
+    git clone <repository-url>
+    cd <repository-directory>
+    ```
+
+2.  **Create a virtual environment (recommended):**
+    ```bash
+    python -m venv venv
+    source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
+    ```
+
+3.  **Install dependencies:**
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+4.  **Prepare your configuration file:**
+    *   Create a file named `config.json` based on the structure described in the [Configuration File](#configuration-file-configjson) section below. Fill in your actual credentials for Snowflake and SQL Server.
+
+5.  **Run the application:**
+    ```bash
+    streamlit run app.py
+    ```
+
+## Usage Guide
+
+### 1. Initial Configuration
+
+*   On the first run, the application will prompt you to upload your `config.json` file.
+*   Drag and drop your prepared `config.json` file into the uploader. The app will validate it and store the credentials in the session state for the duration of your session.
+
+### 2. Ingesting Metadata
+
+*   Navigate to the **"1. Ingest Metadata"** page from the sidebar.
+*   **From SQL Server:** Click "Fetch Procedures from SQL Server". The app will connect to your database, read all procedure metadata, and add it to the staging area.
+*   **From Files:** Provide a logical source database/schema name, upload one or more `.sql` files, and click "Add Uploaded Files to Stage".
+*   Once procedures are in the staging area, review them in the expander and click **"Prepare Procedures for Conversion"** to load them into the Snowflake `procedures_metadata` table.
+
+### 3. Converting Procedures
+
+*   Navigate to the **"2. Convert Procedures"** page.
+*   The application will display a table of procedures from the metadata table.
+*   The user will be able to set the `CONVERSION_FLAG` to `TRUE` for desired procedures.
+*   A "Run Conversion" button will trigger the conversion process for all flagged procedures.
+
+### 4. Deploying to Snowflake
+
+*   Navigate to the **"3. Deploy Procedures"** page.
+*   The app will show a list of procedures that have been successfully converted but not yet deployed.
+*   The user can select procedures and click a "Deploy to Snowflake" button to execute their DDL in the target environment.
+
+## Configuration File (`config.json`)
+
 You must create this JSON file with the connection details for your source and target databases.
-Generated json
+
+```json
 {
   "SNOWFLAKE_CONFIG": {
     "user": "your_snowflake_user",
@@ -170,3 +203,4 @@ Generated json
     "password": "your_sql_server_password"
   }
 }
+```
